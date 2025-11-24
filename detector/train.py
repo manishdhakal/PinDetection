@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
-from torch.optim.lr_scheduler import LinearLR
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR
 from torch.utils.data import DataLoader
 from dataset import SensorDatasetKFold
 from model import SensorNet
@@ -26,6 +26,7 @@ class Trainer:
         
         self.criterion = CrossEntropyLoss()
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
+    
         
         self.batch_size = args.batch_size
         self.log_path = args.log_path
@@ -34,7 +35,25 @@ class Trainer:
         self.num_epochs = args.num_epochs
         self.device = args.device
 
-        
+        self.lr_decay_type = args.lr_decay_type
+    
+    def get_scheduler(self, total_steps: int):
+        if self.lr_decay_type == "linear":
+            end_factor = self.lr_min / self.lr
+            scheduler = LinearLR(
+                self.optimizer,
+                start_factor=1.0,
+                end_factor=end_factor,
+                total_iters=total_steps,
+            )
+        elif self.lr_decay_type == "cosine":
+            scheduler = CosineAnnealingLR(
+                self.optimizer,
+                T_max=total_steps,
+                eta_min=self.lr_min,
+            )
+        return scheduler
+    
     def train_fold(self, fold_index: int) -> torch.Tensor:
         self.dataset_kfold.load_folds(fold_index)
         train_dataset = self.dataset_kfold.get_train_dataset()
@@ -50,14 +69,8 @@ class Trainer:
 
         steps_per_epoch = len(train_loader)
         total_steps = self.num_epochs * steps_per_epoch
-
-        end_factor = self.lr_min / self.lr
-        scheduler = LinearLR(
-            self.optimizer,
-            start_factor=1.0,
-            end_factor=end_factor,
-            total_iters=total_steps,
-        )
+        
+        scheduler = self.get_scheduler(total_steps)
 
         self.model.train()
         step = 0
@@ -137,6 +150,13 @@ if __name__ == "__main__":
         type=float,
         default=0.001,
         help="Initial learning rate for the optimizer.",
+    )
+    parser.add_argument(
+        "--lr-decay-type",
+        type=str,
+        default="linear",
+        choices=["linear", "cosine"],
+        help="Type of learning rate decay.",
     )
     parser.add_argument(
         "--lr-min",

@@ -6,7 +6,8 @@ python detector/train.py \
     --input-size 12 \
     --num-classes 10 \
     --batch-size 256 \
-    --lr 0.01 \
+    --lr 0.001 \
+    --lr-decay-type linear \
     --lr-min 0.00001 \
     --num-epochs 200 \
     --seed 42 \
