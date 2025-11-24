@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -13,7 +14,11 @@ from argparse import ArgumentParser
 
 class Trainer:
     def __init__(self, args):
-        self.dataset_kfold = SensorDatasetKFold(args.data_root, args.n_folds)
+        if args.mean is not None and args.std is not None:
+            transform=lambda x: (x - np.array(args.mean)) / np.array(args.std)
+        else:
+            transform=None
+        self.dataset_kfold = SensorDatasetKFold(args.data_root, args.n_folds, transform=transform)
         self.model = SensorNet(args.input_size, args.num_classes)
         self.criterion = CrossEntropyLoss()
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
@@ -151,6 +156,10 @@ if __name__ == "__main__":
 
     args.log_path = os.path.join(args.log_path, f"{args.n_folds}_folds.txt")
 
+    # Feature normalization stats
+    args.mean = [-2.463068664169788, 5.745093632958801, 6.987760299625468, -0.11829463171036206, -0.1660549313358302, -0.07670911360799001, 0.11442197253433209, 0.28235705368289643, 0.5442372034956304, 20.904696629213486, -19.422094881398248, -20.908379525593013]
+    args.std = [2.2680630362917045, 2.317966221726892, 2.413759374534619, 0.4515026671296862, 0.4327148885859748, 0.2675990420051168, 0.1829183904888331, 0.19106603864158114, 0.4078527366701864, 11.508254056444594, 9.6160017907936, 11.425072105818726]
+    
     seed_everything(args.seed)
 
     accuracy_list = []
