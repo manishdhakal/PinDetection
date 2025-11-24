@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -239,7 +240,10 @@ fun NumberPadScreen(
             text = if (passcode.isEmpty()) "Enter Passcode" else passcode,
             color = Color.Black,
             fontSize = 22.sp,
-            modifier = Modifier.padding(bottom = 48.dp)
+            modifier = Modifier.padding(bottom = 48.dp),
+            maxLines = 1, // Keep to single line
+            softWrap = false, // Disable text wrapping
+            overflow = TextOverflow.Visible // Allow overflow without adding rows
         )
 
         // Wrapper to handle local UI update + callback
@@ -267,7 +271,25 @@ fun NumberPadScreen(
         ) {
             Box(modifier = Modifier.size(80.dp))
             NumberButton(number = "0", onClick = handleDigitClick)
-            Box(modifier = Modifier.size(80.dp))
+
+            // Backspace Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clickable {
+                        if (passcode.isNotEmpty()) {
+                            passcode = passcode.dropLast(1)
+                        }
+                    }
+            ) {
+                Text(
+                    text = "⌫",
+                    color = Color.Black,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
