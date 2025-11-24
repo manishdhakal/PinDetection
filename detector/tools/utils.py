@@ -6,7 +6,7 @@ import random
 import numpy as np
 import torch
 
-def print_log(message: str, log_file: str = 'training_log.txt') -> None:
+def print_log(message: str, log_file: str = 'training_log.txt', print_output:bool = True) -> None:
     """
     Logs the training progress message to a specified log file.
 
@@ -14,7 +14,8 @@ def print_log(message: str, log_file: str = 'training_log.txt') -> None:
         message (string): The message to log.
         log_file (string): The file to which the log should be written.
     """
-    print(message)
+    if print_output:
+        print(message)
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     with open(log_file, 'a') as f:
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

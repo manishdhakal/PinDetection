@@ -8,27 +8,33 @@ from torch.utils.data import DataLoader
 from dataset import SensorDatasetKFold
 from model import SensorNet
 from tools.utils import print_log, seed_everything
+from tqdm import tqdm
 
 from argparse import ArgumentParser
 
 
 class Trainer:
     def __init__(self, args):
+        
         if args.mean is not None and args.std is not None:
             transform=lambda x: (x - np.array(args.mean)) / np.array(args.std)
         else:
             transform=None
         self.dataset_kfold = SensorDatasetKFold(args.data_root, args.n_folds, transform=transform)
-        self.model = SensorNet(args.input_size, args.num_classes)
+        
+        self.model = SensorNet(args.input_size, args.num_classes).to(args.device)
+        
         self.criterion = CrossEntropyLoss()
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
+        
         self.batch_size = args.batch_size
         self.log_path = args.log_path
         self.lr = args.lr
         self.lr_min = args.lr_min
         self.num_epochs = args.num_epochs
-        
+        self.device = args.device
 
+        
     def train_fold(self, fold_index: int) -> torch.Tensor:
         self.dataset_kfold.load_folds(fold_index)
         train_dataset = self.dataset_kfold.get_train_dataset()
@@ -38,9 +44,9 @@ class Trainer:
         print_log(f"Loaded {len(val_dataset)} validation samples.", log_file=self.log_path)
     
         train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True
+            train_dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, num_workers=16
         )
-        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=16)
 
         steps_per_epoch = len(train_loader)
         total_steps = self.num_epochs * steps_per_epoch
@@ -56,12 +62,12 @@ class Trainer:
         self.model.train()
         step = 0
 
-        for epoch in range(self.num_epochs):
+        epoch_tqdm = tqdm(range(self.num_epochs), unit="epoch")
+        for epoch in epoch_tqdm:
             epoch_losses = []
             for batch in train_loader:
-                features = batch["features"]
-                labels = batch["label"]
-
+                features = batch["features"].to(self.device)
+                labels = batch["label"].to(self.device)
                 outputs = self.model(features)
                 loss = self.criterion(outputs, labels)
 
@@ -75,13 +81,14 @@ class Trainer:
 
             average_epoch_loss = sum(epoch_losses) / len(epoch_losses)
             current_lr = self.optimizer.param_groups[0]["lr"]
-            print_log(
-                f"Epoch [{epoch+1}/{self.num_epochs}], Step [{step}/{total_steps}], Loss: {average_epoch_loss:.4f}, LR: {current_lr:.6f}",
-                log_file=self.log_path,
-            )
-
             accuracy = self.evaluate(val_loader)
-            self.model.train()
+            message = f"Epoch [{epoch+1}/{self.num_epochs}], Step [{step}/{total_steps}], Loss: {average_epoch_loss:.4f}, LR: {current_lr:.6f}, Accuracy: {accuracy:.2f}%"
+            print_log(
+                message,
+                log_file=self.log_path,
+                print_output=False
+            )
+            epoch_tqdm.set_postfix_str(message)
 
         self.dataset_kfold.flush_folds()
         return accuracy
@@ -92,15 +99,15 @@ class Trainer:
         total = 0
         with torch.no_grad():
             for batch in val_loader:
-                features = batch["features"]
-                labels = batch["label"]
+                features = batch["features"].to(self.device)
+                labels = batch["label"].to(self.device)
                 outputs = self.model(features)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
         print_log(
-            f"Validation Accuracy: {100 * correct / total:.2f}%", log_file=self.log_path
+            f"Validation Accuracy: {100 * correct / total:.2f}%", log_file=self.log_path, print_output=False
         )
         return 100 * correct / total
 
@@ -151,6 +158,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility."
+    )
+    parser.add_argument(
+        "--device", type=str, default="cpu", help="Device to use for training."
     )
     args = parser.parse_args()
 
