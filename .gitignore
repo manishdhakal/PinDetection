@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Python ignore
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
