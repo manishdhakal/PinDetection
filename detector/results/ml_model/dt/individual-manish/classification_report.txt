@@ -1,0 +1,21 @@
+Arguments: Namespace(data_file_name='detector/data/dataset.txt', combined=True, n_folds=5, input_size=12, num_classes=10, result_path='detector/results/ml_model/dt/individual-manish', seed=42, max_depth_dt=5) 
+ 
+
+Accuracy Score: 0.2576 
+ 
+               precision    recall  f1-score   support
+
+           0       0.32      0.28      0.30       234
+           1       0.29      0.24      0.26       174
+           2       0.23      0.25      0.24       189
+           3       0.23      0.29      0.26       178
+           4       0.22      0.11      0.14       205
+           5       0.22      0.31      0.26       281
+           6       0.26      0.07      0.11       166
+           7       0.21      0.23      0.22       214
+           8       0.22      0.34      0.26       267
+           9       0.51      0.36      0.43       223
+
+    accuracy                           0.26      2131
+   macro avg       0.27      0.25      0.25      2131
+weighted avg       0.27      0.26      0.25      2131

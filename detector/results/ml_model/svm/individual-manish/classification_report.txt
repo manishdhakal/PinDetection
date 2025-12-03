@@ -1,0 +1,23 @@
+Shape of Features (X): (10653, 12) and Shape of Target (y): (10653,) 
+ 
+Arguments: Namespace(data_file_name='detector/data/dataset.txt', combined=True, n_folds=5, input_size=12, num_classes=10, result_path='detector/results/ml_model/svm/individual-manish/', seed=42) 
+ 
+
+Accuracy Score: 0.3627 
+ 
+               precision    recall  f1-score   support
+
+           0       0.45      0.46      0.46       234
+           1       0.44      0.50      0.47       169
+           2       0.25      0.39      0.31       183
+           3       0.30      0.37      0.33       174
+           4       0.33      0.28      0.30       195
+           5       0.31      0.23      0.27       286
+           6       0.22      0.26      0.24       176
+           7       0.44      0.38      0.41       229
+           8       0.36      0.24      0.29       277
+           9       0.53      0.61      0.56       208
+
+    accuracy                           0.36      2131
+   macro avg       0.36      0.37      0.36      2131
+weighted avg       0.37      0.36      0.36      2131

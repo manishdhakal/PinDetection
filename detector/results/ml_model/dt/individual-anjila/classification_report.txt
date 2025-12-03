@@ -1,0 +1,21 @@
+Arguments: Namespace(data_file_name='detector/data/anjila_dataset.csv', combined=True, n_folds=5, input_size=12, num_classes=10, result_path='detector/results/ml_model/dt/individual-anjila', seed=42, max_depth_dt=5) 
+ 
+
+Accuracy Score: 0.2800 
+ 
+               precision    recall  f1-score   support
+
+           0       0.36      0.28      0.31       149
+           1       0.00      0.00      0.00       121
+           2       0.31      0.34      0.33       228
+           3       0.51      0.26      0.35       213
+           4       0.25      0.29      0.27       191
+           5       0.26      0.17      0.20       291
+           6       0.29      0.26      0.27       207
+           7       0.23      0.27      0.25       164
+           8       0.25      0.42      0.32       278
+           9       0.24      0.41      0.30       176
+
+    accuracy                           0.28      2018
+   macro avg       0.27      0.27      0.26      2018
+weighted avg       0.28      0.28      0.27      2018

@@ -1,0 +1,21 @@
+Arguments: Namespace(data_file_name='detector/data/test_dataset.csv', combined=True, n_folds=5, input_size=12, num_classes=10, result_path='detector/results/ml_model/dt/test_dataset', seed=42, max_depth_dt=5) 
+ 
+
+Accuracy Score: 0.2750 
+ 
+               precision    recall  f1-score   support
+
+           0       0.40      0.24      0.30       215
+           1       0.43      0.19      0.26       164
+           2       0.28      0.41      0.33       297
+           3       0.46      0.24      0.32       255
+           4       0.31      0.24      0.27       235
+           5       0.22      0.09      0.13       351
+           6       0.20      0.17      0.18       252
+           7       0.26      0.28      0.27       211
+           8       0.23      0.36      0.28       330
+           9       0.25      0.55      0.35       221
+
+    accuracy                           0.27      2531
+   macro avg       0.31      0.28      0.27      2531
+weighted avg       0.29      0.27      0.26      2531
