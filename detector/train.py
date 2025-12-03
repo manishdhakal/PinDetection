@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import numpy as np
 import torch
@@ -15,28 +16,30 @@ from argparse import ArgumentParser
 
 class Trainer:
     def __init__(self, args):
-        
+
         if args.mean is not None and args.std is not None:
-            transform=lambda x: (x - np.array(args.mean)) / np.array(args.std)
+            transform = lambda x: (x - np.array(args.mean)) / np.array(args.std)
         else:
-            transform=None
-        self.dataset_kfold = SensorDatasetKFold(args.data_root, args.n_folds, transform=transform)
-        
+            transform = None
+        self.dataset_kfold = SensorDatasetKFold(
+            args.data_root, args.n_folds, transform=transform
+        )
+
         self.model = SensorNet(args.input_size, args.num_classes).to(args.device)
-        
+
         self.criterion = CrossEntropyLoss()
         self.optimizer = Adam(self.model.parameters(), lr=args.lr)
-    
-        
+
         self.batch_size = args.batch_size
         self.log_path = args.log_path
+        self.log_path_txt = f"{self.log_path}/training_log.txt"
         self.lr = args.lr
         self.lr_min = args.lr_min
         self.num_epochs = args.num_epochs
         self.device = args.device
 
         self.lr_decay_type = args.lr_decay_type
-    
+
     def get_scheduler(self, total_steps: int):
         if self.lr_decay_type == "linear":
             end_factor = self.lr_min / self.lr
@@ -53,23 +56,29 @@ class Trainer:
                 eta_min=self.lr_min,
             )
         return scheduler
-    
+
     def train_fold(self, fold_index: int) -> torch.Tensor:
         self.dataset_kfold.load_folds(fold_index)
         train_dataset = self.dataset_kfold.get_train_dataset()
         val_dataset = self.dataset_kfold.get_val_dataset()
-        
-        print_log(f"Loaded {len(train_dataset)} training samples.", log_file=self.log_path)
-        print_log(f"Loaded {len(val_dataset)} validation samples.", log_file=self.log_path)
-    
-        train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, num_workers=16
+
+        print_log(
+            f"Loaded {len(train_dataset)} training samples.", log_file=self.log_path_txt
         )
-        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=16)
+        print_log(
+            f"Loaded {len(val_dataset)} validation samples.", log_file=self.log_path_txt
+        )
+
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+        )
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
         steps_per_epoch = len(train_loader)
         total_steps = self.num_epochs * steps_per_epoch
-        
+
         scheduler = self.get_scheduler(total_steps)
 
         self.model.train()
@@ -96,10 +105,15 @@ class Trainer:
             current_lr = self.optimizer.param_groups[0]["lr"]
             accuracy = self.evaluate(val_loader)
             message = f"Epoch [{epoch+1}/{self.num_epochs}], Step [{step}/{total_steps}], Loss: {average_epoch_loss:.4f}, LR: {current_lr:.6f}, Accuracy: {accuracy:.2f}%"
+            print_log(message, log_file=self.log_path_txt, print_output=False)
+            # Save model checkpoint
+            checkpoint_path = os.path.join(self.log_path, f"epoch_{epoch+1}.pth")
+            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            torch.save(self.model.state_dict(), checkpoint_path)
             print_log(
-                message,
-                log_file=self.log_path,
-                print_output=False
+                f"Saved model checkpoint to {checkpoint_path}",
+                log_file=self.log_path_txt,
+                print_output=False,
             )
             epoch_tqdm.set_postfix_str(message)
 
@@ -120,7 +134,9 @@ class Trainer:
                 correct += (predicted == labels).sum().item()
 
         print_log(
-            f"Validation Accuracy: {100 * correct / total:.2f}%", log_file=self.log_path, print_output=False
+            f"Validation Accuracy: {100 * correct / total:.2f}%",
+            log_file=self.log_path_txt,
+            print_output=False,
         )
         return 100 * correct / total
 
@@ -184,28 +200,71 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    args.log_path = os.path.join(args.log_path, f"{args.n_folds}_folds.txt")
-
     # Feature normalization stats
-    args.mean = [-2.463068664169788, 5.745093632958801, 6.987760299625468, -0.11829463171036206, -0.1660549313358302, -0.07670911360799001, 0.11442197253433209, 0.28235705368289643, 0.5442372034956304, 20.904696629213486, -19.422094881398248, -20.908379525593013]
-    args.std = [2.2680630362917045, 2.317966221726892, 2.413759374534619, 0.4515026671296862, 0.4327148885859748, 0.2675990420051168, 0.1829183904888331, 0.19106603864158114, 0.4078527366701864, 11.508254056444594, 9.6160017907936, 11.425072105818726]
-    
+    args.mean = [
+        -2.463068664169788,
+        5.745093632958801,
+        6.987760299625468,
+        -0.11829463171036206,
+        -0.1660549313358302,
+        -0.07670911360799001,
+        0.11442197253433209,
+        0.28235705368289643,
+        0.5442372034956304,
+        20.904696629213486,
+        -19.422094881398248,
+        -20.908379525593013,
+    ]
+    args.std = [
+        2.2680630362917045,
+        2.317966221726892,
+        2.413759374534619,
+        0.4515026671296862,
+        0.4327148885859748,
+        0.2675990420051168,
+        0.1829183904888331,
+        0.19106603864158114,
+        0.4078527366701864,
+        11.508254056444594,
+        9.6160017907936,
+        11.425072105818726,
+    ]
+
     seed_everything(args.seed)
+
+    # args.log_path = f"{args.log_path}/{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    args.log_path = os.path.join(
+        args.log_path, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
+    os.makedirs(args.log_path, exist_ok=True)
+    args.log_path_txt = os.path.join(args.log_path, "training_log.txt")
 
     accuracy_list = []
     for fold_index in range(args.n_folds):
-        print_log("*" * 100, log_file=args.log_path)
-        print_log(f"Training fold {fold_index}/{args.n_folds}", log_file=args.log_path)
+        print_log("*" * 100, log_file=args.log_path_txt)
+        print_log(
+            f"Training fold {fold_index+1}/{args.n_folds}", log_file=args.log_path_txt
+        )
         trainer = Trainer(args)
+
+        print_log(trainer.model, log_file=args.log_path_txt)
+        num_params = sum(
+            p.numel() for p in trainer.model.parameters() if p.requires_grad
+        )
+        print_log(
+            f"Number of trainable parameters: {num_params}", log_file=args.log_path_txt
+        )
+        print_log(args, log_file=args.log_path_txt)
+
         accuracy = trainer.train_fold(fold_index=fold_index)
         accuracy_list.append(accuracy)
 
     average_accuracy = sum(accuracy_list) / len(accuracy_list)
     print_log(
         f"X-validation Accuracies: {[round(acc, 2) for acc in accuracy_list]}",
-        log_file=args.log_path,
+        log_file=args.log_path_txt,
     )
     print_log(
         f"Average X-validation Accuracy: {average_accuracy:.2f}%",
-        log_file=args.log_path,
+        log_file=args.log_path_txt,
     )
