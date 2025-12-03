@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from sklearn.decomposition import PCA
 
 # Preprocessing
 N_FEATURES = 12
@@ -17,18 +18,19 @@ RANDOM_STATE = 42
 
 def hyperparams_grid_search(args, X_train_scaled, y_train, X_test_scaled, y_test):
     param_grid = {
-    'C': [0.1, 1, 10, 100],
-    'gamma': [0.001, 0.01, 0.1, 1],
+    'C': [0.1, 1, 10, 50, 100, 200],
+    'gamma': [0.001, 0.05, 0.01, 0.1, 1],
     'kernel': ['rbf'], 
     'class_weight': ['balanced']
     }
     grid_search = GridSearchCV(
-    estimator=SVC(random_state=RANDOM_STATE),
-    param_grid=param_grid,
-    scoring='f1_weighted',
-    cv=3, 
-    verbose=2, 
-    n_jobs=-1  )
+        estimator=SVC(random_state=RANDOM_STATE),
+        param_grid=param_grid,
+        scoring='f1_weighted',
+        cv=3, 
+        verbose=2, 
+        n_jobs=-1  
+    )
     grid_search.fit(X_train_scaled, y_train)
 
     print("\n--- ✅ Grid Search Complete ---")
@@ -48,7 +50,8 @@ def svm_train(args):
     
     data = pd.read_csv(f'/home/anjilabudathoki/PinDetection/{args.data_file_name}')
     X = pd.DataFrame(data, columns=['AccX','AccY','AccZ','GyroX','GyroY','GyroZ','RotX','RotY','RotZ','MagX','MagY','MagZ'])
-    y = pd.DataFrame(data, columns=['Zone']).values.ravel() 
+    y = pd.DataFrame(data, columns=['Zone']).values.ravel()
+    
 
 
     print(f"\nShape of Features (X): {X.shape}")
@@ -70,9 +73,13 @@ def svm_train(args):
     scaler = StandardScaler() # When we did not scale,accuracy was less than 15 for all the dataset except manish
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
+    # pca = PCA(n_components=0.95, random_state=RANDOM_STATE)
+    # X_train_pca = pca.fit_transform(X_train_scaled)
+    # X_test_pca = pca.transform(X_test_scaled)
     
-    hyperparams_grid_search(args,X_train_scaled, y_train, X_test_scaled, y_test=y_test )
-    exit()
+    hyperparams_grid_search(args,X_train_scaled, y_train, X_test_scaled, y_test=y_test)
+    # hyperparams_grid_search(args,X_train_pca, y_train, X_test_pca, y_test=y_test)    
+    
 
     svm_classifier = SVC(
         C=1.0, 
