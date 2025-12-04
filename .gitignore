@@ -20,3 +20,11 @@ local.properties
 *.pyo
 *.pyd
 .venv/
+
+.kotlin/
+android/
+caches/
+daemon/
+kotlin-profile/
+native/
+wrapper/
