@@ -22,3 +22,10 @@ local.properties
 .venv/
 
 detector/logs/
+.kotlin/
+android/
+caches/
+daemon/
+kotlin-profile/
+native/
+wrapper/
