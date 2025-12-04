@@ -47,10 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.pindetection.ui.theme.PinDetectionTheme
-import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
@@ -68,6 +66,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var rotationVector: Sensor? = null
     private var magneticField: Sensor? = null
+
+    // REMOVED: isCollecting flag is no longer needed as collection starts automatically.
+
+    // *** State to control 100-sample collection per tap (REQUIRED) ***
+    private var isRecordingTap = false
+    private var samplesToCollect = 0
+    private var currentDigit = ""
 
     // Current sensor readings
     private var accX = 0f; private var accY = 0f; private var accZ = 0f
@@ -116,10 +121,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // --- 2. Initialize CSV File ---
         initializeCsvFile()
 
+        // --- 3. AUTO-START SENSOR COLLECTION (No Start Button Needed) ---
+        // Sensors are registered here and will run continuously
+        registerSensorListeners()
+
         setContent {
             PinDetectionTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // --- 3. Pass the click handler to the UI ---
+                    // --- 4. Pass the click handler to the UI (Removed Start/Stop callbacks) ---
                     NumberPadScreen(
                         modifier = Modifier.padding(innerPadding),
                         onNumberClick = { number, onReset ->
@@ -127,7 +136,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         },
                         onOkClick = { currentPasscode, onUiReset ->
                             performApiCall(currentPasscode)
-                            onUiReset() // <--- EXECUTE THE UI RESET HERE
+                            onUiReset()
                         }
                     )
                 }
@@ -135,46 +144,36 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    // New function to handle sensor registration
+    private fun registerSensorListeners() {
+        val delay = SensorManager.SENSOR_DELAY_GAME // ~50Hz
+        accelerometer?.let { sensorManager.registerListener(this, it, delay) }
+        gyroscope?.let { sensorManager.registerListener(this, it, delay) }
+        rotationVector?.let { sensorManager.registerListener(this, it, delay) }
+        magneticField?.let { sensorManager.registerListener(this, it, delay) }
+        Log.d("MainActivity", "Sensor Stream Started Automatically at ${delay} delay.")
+    }
+
+
     // --- Logic: Handle Button Click ---
     private fun handleZoneClick(number: String, onReset: () -> Unit) {
-        val zoneIndex = number.toIntOrNull() ?: return
 
-        val currentSensorData = SensorData(
-            accX = accX, accY = accY, accZ = accZ,
-            gyroX = gyroX, gyroY = gyroY, gyroZ = gyroZ,
-            rotX = rotX, rotY = rotY, rotZ = rotZ,
-            magX = magX, magY = magY, magZ = magZ,
-            digit = number
-        )
+        // Prevent starting a new tap collection if one is already in progress
+        if (isRecordingTap) {
+            Toast.makeText(this, "Still collecting previous tap data. Please wait.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        sensorDataList.add(currentSensorData)
+        // *** START 100-SAMPLE COLLECTION ***
+        isRecordingTap = true
+        samplesToCollect = 100 // Initialize counter for 100 samples
+        currentDigit = number // Store the digit that was pressed
 
-        // Create and show dialog with sensor data
-//        val dialogMessage = """
-//            Zone $zoneIndex Sensor Data:
-//            Accelerometer: X=%.2f, Y=%.2f, Z=%.2f
-//            Gyroscope: X=%.2f, Y=%.2f, Z=%.2f
-//            Rotation Vector: X=%.2f, Y=%.2f, Z=%.2f
-//            Magnetic Field: X=%.2f, Y=%.2f, Z=%.2f
-//        """.trimIndent().format(
-//            accX, accY, accZ,
-//            gyroX, gyroY, gyroZ,
-//            rotX, rotY, rotZ,
-//            magX, magY, magZ
-//        )
-//
-//        AlertDialog.Builder(this)
-//            .setTitle("Zone $zoneIndex Sensor Readings")
-//            .setMessage(dialogMessage)
-//            .setPositiveButton("OK") { dialog, _ ->
-//                dialog.dismiss()
-//                onReset() // Reset the UI dots here
-//            }
-//            .create()
-//            .show()
+        // Notify user that collection has started (takes ~2 seconds at 50Hz)
+        Toast.makeText(this, "Collecting $samplesToCollect samples for digit $number...", Toast.LENGTH_SHORT).show()
 
-        // Append sensor data to CSV
-        appendToCsv(zoneIndex)
+        // NOTE: The actual data collection and logging now happens in onSensorChanged,
+        // which runs repeatedly at 50Hz until samplesToCollect hits zero.
     }
 
     // --- Logic: API Call Placeholder ---
@@ -183,9 +182,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         Thread {
             try {
                 val client = OkHttpClient()
-                val json = JSONObject()
                 val dataArray = org.json.JSONArray()
 
+                // sensorDataList now contains N * 100 samples (where N is passcode length)
                 sensorDataList.forEach { data ->
                     val item = JSONObject()
                     item.put("accX", data.accX)
@@ -194,7 +193,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     item.put("gyroX", data.gyroX)
                     item.put("gyroY", data.gyroY)
                     item.put("gyroZ", data.gyroZ)
-                    // Add other sensor data fields if needed, or only the relevant ones
+                    item.put("rotX", data.rotX)
+                    item.put("rotY", data.rotY)
+                    item.put("rotZ", data.rotZ)
+                    item.put("magX", data.magX)
+                    item.put("magY", data.magY)
+                    item.put("magZ", data.magZ)
                     item.put("digit", data.digit)
                     dataArray.put(item)
                 }
@@ -203,16 +207,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 finalPayload.put("passcode", passcode)
                 finalPayload.put("sensor_history", dataArray)
 
-                json.put("accX", accX)
-                json.put("accY", accY)
-                json.put("accZ", accZ)
-                json.put("gyroX", gyroX)
-                json.put("gyroY", gyroY)
-                json.put("gyroZ", gyroZ)
-
-                json.put("digit", passcode)
-
-//                val requestBody = json.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                 val requestBody = finalPayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
 
@@ -267,6 +261,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             try {
                 if (filesDir.isDirectory && filesDir.canWrite()) {
                     csvFile.writeText(
+                        // Timestamp is recorded here (Requirement b)
                         "Timestamp,Zone,AccX,AccY,AccZ,GyroX,GyroY,GyroZ,RotX,RotY,RotZ,MagX,MagY,MagZ\n"
                     )
                     Log.d("MainActivity", "Created dataset.txt at ${csvFile.absolutePath}")
@@ -280,13 +275,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private fun appendToCsv(zoneIndex: Int) {
         if (filesDir.isDirectory && filesDir.canWrite()) {
             val csvFile = File(filesDir, "dataset.txt")
+            // Capturing timestamp with millisecond precision (Requirement b)
             val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
             val csvRow = "$timestamp,$zoneIndex,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n".format(
                 accX, accY, accZ, gyroX, gyroY, gyroZ, rotX, rotY, rotZ, magX, magY, magZ
             )
             try {
                 FileOutputStream(csvFile, true).use { it.write(csvRow.toByteArray()) }
-                Log.d("MainActivity", "Appended data: $csvRow")
+                // Logging every row is too chatty, so only log completion
+                // Log.d("MainActivity", "Appended data: $csvRow")
                 checkAndCopyCsvToDownloads()
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error writing to CSV: ${e.message}")
@@ -310,12 +307,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         try {
             val internalCsvFile = File(filesDir, "dataset.txt")
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-//            if (downloadsDir.isDirectory && downloadsDir.canWrite()) {
-//                val externalCsvFile = File(downloadsDir, "dataset.txt")
-//                internalCsvFile.copyTo(externalCsvFile, overwrite = true)
-//                Log.d("MainActivity", "Copied to Downloads: ${externalCsvFile.absolutePath}")
-//                Toast.makeText(this, "Data Saved to Downloads/dataset.txt", Toast.LENGTH_SHORT).show()
-//            }
+            if (downloadsDir.isDirectory && downloadsDir.canWrite()) {
+                val externalCsvFile = File(downloadsDir, "dataset.txt")
+                internalCsvFile.copyTo(externalCsvFile, overwrite = true)
+                Log.d("MainActivity", "Copied to Downloads: ${externalCsvFile.absolutePath}")
+                Toast.makeText(this, "Data Saved to Downloads/dataset.txt", Toast.LENGTH_SHORT).show()
+            }
         } catch (e: Exception) {
             Log.e("MainActivity", "Error copying to Downloads: ${e.message}")
         }
@@ -324,37 +321,74 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // --- Sensor Lifecycle Methods ---
     override fun onResume() {
         super.onResume()
-        val delay = SensorManager.SENSOR_DELAY_GAME
-        accelerometer?.let { sensorManager.registerListener(this, it, delay) }
-        gyroscope?.let { sensorManager.registerListener(this, it, delay) }
-        rotationVector?.let { sensorManager.registerListener(this, it, delay) }
-        magneticField?.let { sensorManager.registerListener(this, it, delay) }
+        // Ensure sensors are registered when the app comes to the foreground
+        registerSensorListeners()
     }
 
     override fun onPause() {
         super.onPause()
+        // Unregister listeners to save battery when the app is paused
         sensorManager.unregisterListener(this)
+        Log.d("MainActivity", "Sensor Stream Stopped on Pause.")
+        // Stop any ongoing tap recording
+        isRecordingTap = false
+        samplesToCollect = 0
+        currentDigit = ""
     }
 
     override fun onSensorChanged(event: SensorEvent) {
+        // Update current sensor values
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> { accX = event.values[0]; accY = event.values[1]; accZ = event.values[2] }
             Sensor.TYPE_GYROSCOPE -> { gyroX = event.values[0]; gyroY = event.values[1]; gyroZ = event.values[2] }
             Sensor.TYPE_ROTATION_VECTOR -> { rotX = event.values[0]; rotY = event.values[1]; rotZ = event.values[2] }
             Sensor.TYPE_MAGNETIC_FIELD -> { magX = event.values[0]; magY = event.values[1]; magZ = event.values[2] }
         }
+
+        // *** CORE LOGIC FOR 100 SAMPLES PER TAP ***
+        if (isRecordingTap && samplesToCollect > 0) {
+            val zoneIndex = currentDigit.toIntOrNull() ?: -1
+
+            val currentSensorData = SensorData(
+                accX = accX, accY = accY, accZ = accZ,
+                gyroX = gyroX, gyroY = gyroY, gyroZ = gyroZ,
+                rotX = rotX, rotY = rotY, rotZ = rotZ,
+                magX = magX, magY = magY, magZ = magZ,
+                digit = currentDigit
+            )
+
+            // 1. Add sample to the list for the API call
+            sensorDataList.add(currentSensorData)
+
+            // 2. Log sample to CSV file
+            appendToCsv(zoneIndex)
+
+            // 3. Decrement counter
+            samplesToCollect--
+
+            // 4. Check if collection is complete
+            if (samplesToCollect == 0) {
+                isRecordingTap = false
+                Log.d("MainActivity", "--- 100 samples collected for digit $currentDigit ---")
+                // Use runOnUiThread because this runs on the sensor thread
+                runOnUiThread {
+                    Toast.makeText(this, "100 samples recorded for $currentDigit.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 }
 
-// --- Composable UI ---
+// --- Composable UI (START/STOP buttons removed) ---
 
 @Composable
 fun NumberPadScreen(
     modifier: Modifier = Modifier,
     onNumberClick: (String, () -> Unit) -> Unit,
-    onOkClick: (String, () -> Unit) -> Unit // <-- CHANGED
+    onOkClick: (String, () -> Unit) -> Unit,
+    // REMOVED: onStartClick and onStopClick arguments
 ) {
     // Visual state for the asterisks
     var passcode by remember { mutableStateOf("") }
@@ -369,6 +403,9 @@ fun NumberPadScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+
+        // REMOVED: Start/Stop Buttons Row
+
         Text(
             text = if (passcode.isEmpty()) "Enter Passcode" else passcode,
             color = Color.Black,
@@ -381,10 +418,13 @@ fun NumberPadScreen(
 
         // Wrapper to handle local UI update + callback
         val handleDigitClick: (String) -> Unit = { digit ->
+            // Update UI immediately
             passcode += "*"
             passcodeVal += digit
+
+            // Trigger 100-sample collection in MainActivity
             onNumberClick(digit) {
-                // This reset block runs when the dialog is dismissed
+                // This reset block runs when the dialog is dismissed (but no dialog now)
                 passcode = ""
                 passcodeVal =""
             }
@@ -404,6 +444,7 @@ fun NumberPadScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
+            // OK button
             TextButton(
                 label = "OK",
                 onClick = {
@@ -413,6 +454,7 @@ fun NumberPadScreen(
                     }
                 }
             )
+            // 0 button
             NumberButton(number = "0", onClick = handleDigitClick)
 
             // Backspace Button
@@ -423,6 +465,7 @@ fun NumberPadScreen(
                     .clickable {
                         if (passcode.isNotEmpty()) {
                             passcode = passcode.dropLast(1)
+                            passcodeVal = passcodeVal.dropLast(1) // Also remove from value
                         }
                     }
             ) {
@@ -478,23 +521,30 @@ fun NumberButton(
 @Composable
 fun NumberPadPreview() {
     PinDetectionTheme {
-        NumberPadScreen(onNumberClick = { _, _ -> },onOkClick = { _ , _ -> })
+        // Updated preview to match new signature
+        NumberPadScreen(
+            onNumberClick = { _, _ -> },
+            onOkClick = { _, _ -> }
+            // Removed onStartClick and onStopClick
+        )
     }
 }
 
 @Composable
 fun TextButton(
     label: String,
-    onClick: (String) -> Unit
+    onClick: () -> Unit,
+    color: Color = Color(0xFFE0E0E0)
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(80.dp)
             .clip(CircleShape)
-            // Use a different color or just keep it transparent/light to mimic common OK button styling
-            .background(Color(0xFFE0E0E0)) // Slightly darker gray for action button
-            .clickable { onClick(label) }
+            // Use dynamic color for the background
+            .background(color)
+            // Changed onClick handler to simple () -> Unit
+            .clickable { onClick() }
     ) {
         Text(
             text = label,
@@ -504,5 +554,3 @@ fun TextButton(
         )
     }
 }
-
-
