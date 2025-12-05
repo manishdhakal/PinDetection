@@ -160,7 +160,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         // Prevent starting a new tap collection if one is already in progress
         if (isRecordingTap) {
             runOnUiThread {
-                Toast.makeText(this, "Still collecting previous tap data...", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(this, "Still collecting previous tap data...", Toast.LENGTH_SHORT).show()
             }
             return
         }
@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         currentDigit = number // This digit will be used for all 100 rows
 
         runOnUiThread {
-            Toast.makeText(this, "Recording 100 samples for Zone $number...", Toast.LENGTH_SHORT).show()
+//            Toast.makeText(this, "Recording 100 samples for Zone $number...", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -349,7 +349,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 // Copy CSV to downloads only after the batch is finished
                 checkAndCopyCsvToDownloads()
                 runOnUiThread {
-                    Toast.makeText(this, "Collected 100 samples for Zone $currentDigit", Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this, "Collected 100 samples for Zone $currentDigit", Toast.LENGTH_SHORT).show()
                 }
             }
         }
