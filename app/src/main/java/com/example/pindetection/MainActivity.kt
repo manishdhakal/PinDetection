@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // Mutable list to store the sensor data
     val sensorDataList = mutableListOf<SensorData>()
 
-    private var url = "http://10.0.0.12:8000/predict"
+    private var url = "http://10.250.69.192:8000/predict"
 
     // Permission launcher for Android 9 and below
     private val requestPermissionLauncher = registerForActivityResult(
@@ -171,10 +171,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         currentDigit = number // This digit will be used for all 100 rows
 
         runOnUiThread {
-            // Notify user that collection has started
             Toast.makeText(this, "Recording 100 samples for Zone $number...", Toast.LENGTH_SHORT).show()
-            // Reset UI immediately
-            onReset()
         }
     }
 
