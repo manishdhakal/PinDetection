@@ -7,10 +7,11 @@ class CNN_Model(nn.Module):
         super(CNN_Model, self).__init__()
         self.conv1 = nn.Conv1d(in_channels=input_channels, out_channels=64, kernel_size=15, stride=1, padding='same')
         self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=10, stride=1, padding='same')
+        self.conv2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=9, stride=1, padding='same')
         self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
         
-        self.flattened_size = 128 * (100 // 2 // 2) 
+        # Calculate flattened features size dynamically
+        self.flattened_size = 128 * (100 // 2 // 2) # 128 channels * 25 time steps
 
         self.fc1 = nn.Linear(self.flattened_size, 256)
         self.fc2 = nn.Linear(256, num_classes)

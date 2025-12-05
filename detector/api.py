@@ -47,7 +47,7 @@ def predict():
         }
 
         print(
-            f'Predicted pins: {predicted_pins} | Ground truth pins: {"".join(data["passcode"])}'
+            f'Predicted pins: {"".join(map(str, predicted_pins))} | Ground truth pins: {"".join(data["passcode"])}'
         )
 
         return jsonify(result), 200
