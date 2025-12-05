@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     // Mutable list to store the sensor data
     val sensorDataList = mutableListOf<SensorData>()
 
-    private var url = "http://10.250.69.192:8000/predict"
+    private var url = "http://10.0.0.185:8000/predict"
 
     // Permission launcher for Android 9 and below
     private val requestPermissionLauncher = registerForActivityResult(

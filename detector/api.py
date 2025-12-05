@@ -34,7 +34,7 @@ def predict():
 
         sensor_data_tensor = torch.tensor(sensor_data).reshape(-1, 100, 12).float()
         sensor_data_tensor = normalize_data(sensor_data_tensor)
-        model = load_model("detector/cnn_model.pth")
+        model = load_model("./detector/cnn_model.pth")
         with torch.no_grad():
             outputs = model(sensor_data_tensor)
             _, predicted = torch.max(outputs.data, 1)
